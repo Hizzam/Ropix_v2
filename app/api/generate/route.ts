@@ -8,6 +8,8 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
+  let userId: string | null = null // ✅ for refund
+
   try {
     const { style, genre, added_text } = await req.json()
 
@@ -20,22 +22,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    // Fetch user's credits
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("image_credits")
-      .eq("id", user.id)
-      .single()
+    userId = user.id // ✅ store for refund
 
-    if (profileError || profile.image_credits === 0) {
+    // 🧠 SAFE CREDIT DEDUCTION (atomic)
+    const { data: success, error: creditError } = await supabase.rpc("decrement_credit", {
+      user_id: user.id,
+    })
+
+    if (creditError || !success) {
       return NextResponse.json({ error: "No credits left" }, { status: 403 })
     }
-
-    // Deduct 1 credit
-    await supabase
-      .from("profiles")
-      .update({ image_credits: profile.image_credits - 1 })
-      .eq("id", user.id)
 
     // Build prompt including text and genre
     let prompt = `Roblox game thumbnail, ${style} style, vibrant colors, cinematic lighting, high detail`
@@ -56,9 +52,19 @@ export async function POST(req: Request) {
     })
 
     let prediction = await startResponse.json()
+
     if (startResponse.status !== 201) {
       console.error("Replicate start error:", prediction)
-      return NextResponse.json({ error: prediction.detail || "Failed to start AI" }, { status: 500 })
+
+      // 🔥 REFUND if start fails
+      await supabase.rpc("increment_credit", {
+        user_id: user.id,
+      })
+
+      return NextResponse.json(
+        { error: prediction.detail || "Failed to start AI" },
+        { status: 500 }
+      )
     }
 
     // Poll until finished
@@ -66,7 +72,11 @@ export async function POST(req: Request) {
       await new Promise((resolve) => setTimeout(resolve, 2000))
       const pollResponse = await fetch(
         `https://api.replicate.com/v1/predictions/${prediction.id}`,
-        { headers: { Authorization: `Token ${process.env.REPLICATE_API_TOKEN}` } }
+        {
+          headers: {
+            Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+          },
+        }
       )
       prediction = await pollResponse.json()
     }
@@ -85,15 +95,42 @@ export async function POST(req: Request) {
         },
       ])
 
+      // ✅ Get updated credits
+      const { data: updatedProfile } = await supabase
+        .from("profiles")
+        .select("image_credits")
+        .eq("id", user.id)
+        .single()
+
       return NextResponse.json({
         image: imageUrl,
-        credits_remaining: profile.image_credits - 1,
+        credits_remaining: updatedProfile?.image_credits ?? 0,
       })
     } else {
-      return NextResponse.json({ error: "Image generation failed" }, { status: 500 })
+      // 🔥 REFUND if generation fails
+      await supabase.rpc("increment_credit", {
+        user_id: user.id,
+      })
+
+      return NextResponse.json(
+        { error: "Image generation failed (credit refunded)" },
+        { status: 500 }
+      )
     }
   } catch (error) {
     console.error("Server error:", error)
+
+    // 🔥 FINAL SAFETY REFUND
+    if (userId) {
+      try {
+        await supabase.rpc("increment_credit", {
+          user_id: userId,
+        })
+      } catch (refundError) {
+        console.error("Refund failed:", refundError)
+      }
+    }
+
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }
