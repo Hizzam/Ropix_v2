@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
+import ThumbnailEditor from "@/app/components/ThumbnailEditor" // ✅ NEW
 
 interface GeneratedImage {
   id: string
@@ -14,13 +15,13 @@ interface GeneratedImage {
 
 export default function Dashboard() {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null) // ✅ NEW
   const [selectedStyle, setSelectedStyle] = useState<string>("cartoon")
   const [genre, setGenre] = useState<string>("")
   const [addedText, setAddedText] = useState<string>("")
   const [credits, setCredits] = useState<number | null>(null)
   const [history, setHistory] = useState<GeneratedImage[]>([])
 
-  // 🔥 Fetch credits + history on load
   useEffect(() => {
     const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -46,49 +47,6 @@ export default function Dashboard() {
     fetchData()
   }, [])
 
-  // 🔥 Canvas Text Overlay Download
-  const handleDownload = (imageUrl: string, text?: string | null) => {
-    const img = new Image()
-    img.crossOrigin = "anonymous"
-    img.src = imageUrl
-
-    img.onload = () => {
-      const canvas = document.createElement("canvas")
-      canvas.width = img.width
-      canvas.height = img.height
-
-      const ctx = canvas.getContext("2d")
-      if (!ctx) return
-
-      // Draw background
-      ctx.drawImage(img, 0, 0)
-
-      if (text) {
-        ctx.font = "bold 120px Impact"
-        ctx.fillStyle = "white"
-        ctx.strokeStyle = "black"
-        ctx.lineWidth = 8
-        ctx.textAlign = "center"
-
-        const x = canvas.width / 2
-        const y = canvas.height - 150
-
-        ctx.strokeText(text, x, y)
-        ctx.fillText(text, x, y)
-      }
-
-      const finalImage = canvas.toDataURL("image/png")
-
-      const link = document.createElement("a")
-      link.href = finalImage
-      link.download = "ropix-thumbnail.png"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
-  }
-
-  // 🔥 Generate
   const handleGenerate = async () => {
     if (!uploadedImage) return alert("Upload an image first")
     if (credits === 0) return alert("No credits left!")
@@ -115,7 +73,9 @@ export default function Dashboard() {
       if (data.image) {
         setCredits(data.credits_remaining)
 
-        // Update history locally
+        // ✅ SET GENERATED IMAGE (for editor)
+        setGeneratedImage(data.image)
+
         const newItem: GeneratedImage = {
           id: crypto.randomUUID(),
           image_url: data.image,
@@ -126,9 +86,6 @@ export default function Dashboard() {
         }
 
         setHistory(prev => [newItem, ...prev])
-
-        // Download with text overlay
-        handleDownload(data.image, addedText)
 
       } else {
         alert("Generation failed: " + (data.error || "Unknown error"))
@@ -226,6 +183,14 @@ export default function Dashboard() {
         {credits === 0 ? "No Credits Left" : "Generate (1 Credit)"}
       </button>
 
+      {/* ✅ EDITOR SHOWS HERE */}
+      {generatedImage && (
+        <div className="mt-10">
+          <h2 className="text-2xl font-bold mb-4">Edit Your Thumbnail</h2>
+          <ThumbnailEditor imageUrl={generatedImage} />
+        </div>
+      )}
+
       {/* History */}
       <div className="w-full mt-10">
         <h2 className="text-2xl font-bold mb-4">History</h2>
@@ -252,15 +217,6 @@ export default function Dashboard() {
               {item.added_text && (
                 <p className="text-sm"><strong>Text:</strong> {item.added_text}</p>
               )}
-
-              <button
-                className="bg-blue-600 text-white px-3 py-1 mt-2 rounded"
-                onClick={() =>
-                  handleDownload(item.image_url, item.added_text)
-                }
-              >
-                Download
-              </button>
             </div>
           ))}
         </div>
