@@ -22,72 +22,30 @@ interface TextItem {
 }
 
 const FONTS = [
-  "Arial",
-  "Impact",
-  "Georgia",
-  "Comic Sans MS",
-  "Courier New",
-  "Trebuchet MS",
-  "Verdana",
-]
-
-const COLOR_PRESETS = [
-  "#ffffff", "#ffff00", "#ff4444", "#44ff44",
-  "#44aaff", "#ff44ff", "#ff8800", "#000000",
+  { label: "Impact", value: "Impact" },
+  { label: "Montserrat", value: "Montserrat" },
+  { label: "Bangers", value: "Bangers" },
+  { label: "Fredoka One", value: "Fredoka One" },
+  { label: "Luckiest Guy", value: "Luckiest Guy" },
+  { label: "Oswald", value: "Oswald" },
+  { label: "Nunito", value: "Nunito" },
+  { label: "Arimo", value: "Arimo" },
+  { label: "Patrick Hand", value: "Patrick Hand" },
+  { label: "Arial", value: "Arial" },
+  { label: "Georgia", value: "Georgia" },
+  { label: "Comic Sans", value: "Comic Sans MS" },
 ]
 
 const STYLE_PRESETS = [
-  {
-    label: "🔥 Epic",
-    fontSize: 130,
-    color: "#ffcc00",
-    strokeColor: "#ff4400",
-    strokeWidth: 12,
-    fontFamily: "Impact",
-    bold: true,
-    italic: false,
-  },
-  {
-    label: "❄️ Frost",
-    fontSize: 120,
-    color: "#aaddff",
-    strokeColor: "#0055ff",
-    strokeWidth: 10,
-    fontFamily: "Arial",
-    bold: true,
-    italic: false,
-  },
-  {
-    label: "💀 Dark",
-    fontSize: 120,
-    color: "#ffffff",
-    strokeColor: "#000000",
-    strokeWidth: 14,
-    fontFamily: "Georgia",
-    bold: true,
-    italic: false,
-  },
-  {
-    label: "🌈 Fun",
-    fontSize: 120,
-    color: "#ff44ff",
-    strokeColor: "#ffff00",
-    strokeWidth: 8,
-    fontFamily: "Comic Sans MS",
-    bold: true,
-    italic: false,
-  },
-  {
-    label: "⚡ Neon",
-    fontSize: 130,
-    color: "#00ffcc",
-    strokeColor: "#0000ff",
-    strokeWidth: 10,
-    fontFamily: "Verdana",
-    bold: true,
-    italic: false,
-  },
+  { label: "🔥 Epic", fontSize: 130, color: "#ffcc00", strokeColor: "#ff4400", strokeWidth: 12, fontFamily: "Impact", bold: true, italic: false },
+  { label: "❄️ Frost", fontSize: 120, color: "#aaddff", strokeColor: "#0055ff", strokeWidth: 10, fontFamily: "Montserrat", bold: true, italic: false },
+  { label: "💀 Dark", fontSize: 120, color: "#ffffff", strokeColor: "#000000", strokeWidth: 14, fontFamily: "Oswald", bold: true, italic: false },
+  { label: "🌈 Fun", fontSize: 120, color: "#ff44ff", strokeColor: "#ffff00", strokeWidth: 8, fontFamily: "Fredoka One", bold: true, italic: false },
+  { label: "⚡ Neon", fontSize: 130, color: "#00ffcc", strokeColor: "#0000ff", strokeWidth: 10, fontFamily: "Bangers", bold: true, italic: false },
+  { label: "🎮 Game", fontSize: 130, color: "#ffffff", strokeColor: "#ff8800", strokeWidth: 10, fontFamily: "Bangers", bold: true, italic: false },
 ]
+
+type DragMode = "move" | "resize-br" | null
 
 export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -97,8 +55,10 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingText, setEditingText] = useState("")
   const [downloaded, setDownloaded] = useState(false)
-  const dragTarget = useRef<number | null>(null)
+  const dragMode = useRef<DragMode>(null)
   const dragOffset = useRef({ x: 0, y: 0 })
+  const dragStartFontSize = useRef(0)
+  const dragStartY = useRef(0)
   const isDragging = useRef(false)
 
   const selectedText = texts.find((t) => t.id === selectedId) ?? null
@@ -106,10 +66,7 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
   useEffect(() => {
     const img = new Image()
     img.crossOrigin = "anonymous"
-    img.onload = () => {
-      imgRef.current = img
-      redraw(img, texts, selectedId)
-    }
+    img.onload = () => { imgRef.current = img; redraw(img, texts, selectedId) }
     img.src = imageUrl
   }, [imageUrl])
 
@@ -119,6 +76,22 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
 
   const getFont = (item: TextItem) =>
     `${item.italic ? "italic " : ""}${item.bold ? "bold " : ""}${item.fontSize}px "${item.fontFamily}"`
+
+  const getTextBounds = (ctx: CanvasRenderingContext2D, item: TextItem) => {
+    ctx.font = getFont(item)
+    const width = ctx.measureText(item.text).width
+    const height = item.fontSize
+    return {
+      left: item.x - width / 2 - 12,
+      top: item.y - height - 8,
+      right: item.x + width / 2 + 12,
+      bottom: item.y + 16,
+      width: width + 24,
+      height: height + 24,
+    }
+  }
+
+  const HANDLE_SIZE = 40
 
   const redraw = (img: HTMLImageElement, textItems: TextItem[], activeId: number | null) => {
     const canvas = canvasRef.current
@@ -135,26 +108,31 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
       ctx.shadowBlur = 18
       ctx.shadowOffsetX = 5
       ctx.shadowOffsetY = 5
-
       if (item.strokeWidth > 0) {
         ctx.strokeStyle = item.strokeColor
         ctx.lineWidth = item.strokeWidth
         ctx.lineJoin = "round"
         ctx.strokeText(item.text, item.x, item.y)
       }
-
       ctx.fillStyle = item.color
       ctx.fillText(item.text, item.x, item.y)
 
       if (item.id === activeId) {
-        const width = ctx.measureText(item.text).width
-        const height = item.fontSize
+        const b = getTextBounds(ctx, item)
         ctx.shadowColor = "transparent"
-        ctx.strokeStyle = "#00aaff"
-        ctx.lineWidth = 3
-        ctx.setLineDash([10, 5])
-        ctx.strokeRect(item.x - width / 2 - 12, item.y - height, width + 24, height + 16)
+        ctx.strokeStyle = "#facc15"
+        ctx.lineWidth = 4
+        ctx.setLineDash([12, 6])
+        ctx.strokeRect(b.left, b.top, b.width, b.height)
         ctx.setLineDash([])
+        ctx.fillStyle = "#facc15"
+        ctx.beginPath()
+        ctx.roundRect(b.right - HANDLE_SIZE / 2, b.bottom - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE, 6)
+        ctx.fill()
+        ctx.fillStyle = "#000"
+        ctx.font = "bold 22px Arial"
+        ctx.textAlign = "center"
+        ctx.fillText("⤡", b.right, b.bottom + 8)
       }
       ctx.restore()
     })
@@ -168,85 +146,103 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
     }
   }
 
-  const getHitText = (pos: { x: number; y: number }) => {
-    const ctx = canvasRef.current!.getContext("2d")!
+  const hitTest = (pos: { x: number; y: number }) => {
+    const canvas = canvasRef.current!
+    const ctx = canvas.getContext("2d")!
+    if (selectedId !== null) {
+      const sel = texts.find(t => t.id === selectedId)
+      if (sel) {
+        const b = getTextBounds(ctx, sel)
+        if (pos.x >= b.right - HANDLE_SIZE && pos.x <= b.right + HANDLE_SIZE / 2 &&
+          pos.y >= b.bottom - HANDLE_SIZE && pos.y <= b.bottom + HANDLE_SIZE / 2) {
+          return { item: sel, mode: "resize-br" as DragMode }
+        }
+      }
+    }
     for (let i = texts.length - 1; i >= 0; i--) {
       const item = texts[i]
-      ctx.font = getFont(item)
-      const width = ctx.measureText(item.text).width
-      const height = item.fontSize
-      if (
-        pos.x >= item.x - width / 2 - 12 &&
-        pos.x <= item.x + width / 2 + 12 &&
-        pos.y >= item.y - height &&
-        pos.y <= item.y + 16
-      ) return item
+      const b = getTextBounds(ctx, item)
+      if (pos.x >= b.left && pos.x <= b.right && pos.y >= b.top && pos.y <= b.bottom) {
+        return { item, mode: "move" as DragMode }
+      }
     }
     return null
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const pos = getMousePos(e)
-    const hit = getHitText(pos)
+    const hit = hitTest(pos)
     if (hit) {
-      dragTarget.current = hit.id
-      dragOffset.current = { x: pos.x - hit.x, y: pos.y - hit.y }
+      dragMode.current = hit.mode
       isDragging.current = false
-      setSelectedId(hit.id)
+      setSelectedId(hit.item.id)
+      if (hit.mode === "move") {
+        dragOffset.current = { x: pos.x - hit.item.x, y: pos.y - hit.item.y }
+      } else if (hit.mode === "resize-br") {
+        dragStartY.current = pos.y
+        dragStartFontSize.current = hit.item.fontSize
+      }
     } else {
       setSelectedId(null)
+      dragMode.current = null
     }
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (dragTarget.current === null) return
+    if (dragMode.current === null || selectedId === null) return
     isDragging.current = true
     const pos = getMousePos(e)
-    setTexts((prev) =>
-      prev.map((t) =>
-        t.id === dragTarget.current
+    if (dragMode.current === "move") {
+      setTexts(prev => prev.map(t =>
+        t.id === selectedId
           ? { ...t, x: pos.x - dragOffset.current.x, y: pos.y - dragOffset.current.y }
           : t
-      )
-    )
+      ))
+    } else if (dragMode.current === "resize-br") {
+      const delta = pos.y - dragStartY.current
+      const newSize = Math.max(30, Math.min(400, dragStartFontSize.current + delta))
+      setTexts(prev => prev.map(t =>
+        t.id === selectedId ? { ...t, fontSize: Math.round(newSize) } : t
+      ))
+    }
+    if (canvasRef.current) canvasRef.current.style.cursor = dragMode.current === "resize-br" ? "nwse-resize" : "move"
   }
 
   const handleMouseUp = () => {
-    if (!isDragging.current && dragTarget.current !== null) {
-      const hit = texts.find((t) => t.id === dragTarget.current)
+    if (!isDragging.current && dragMode.current === "move" && selectedId !== null) {
+      const hit = texts.find(t => t.id === selectedId)
       if (hit) { setEditingId(hit.id); setEditingText(hit.text) }
     }
-    dragTarget.current = null
+    dragMode.current = null
     isDragging.current = false
+    if (canvasRef.current) canvasRef.current.style.cursor = "move"
+  }
+
+  const handleMouseLeave = () => {
+    dragMode.current = null
+    isDragging.current = false
+    if (canvasRef.current) canvasRef.current.style.cursor = "move"
   }
 
   const updateSelected = (updates: Partial<TextItem>) => {
     if (selectedId === null) return
-    setTexts((prev) => prev.map((t) => t.id === selectedId ? { ...t, ...updates } : t))
+    setTexts(prev => prev.map(t => t.id === selectedId ? { ...t, ...updates } : t))
   }
 
   const applyPreset = (preset: typeof STYLE_PRESETS[0]) => {
     if (selectedId === null) return
-    setTexts((prev) =>
-      prev.map((t) => t.id === selectedId ? { ...t, ...preset } : t)
-    )
+    setTexts(prev => prev.map(t => t.id === selectedId ? { ...t, ...preset } : t))
   }
 
   const addText = () => {
     const newText: TextItem = {
-      id: Date.now(),
-      text: "Your Text",
-      x: EXPORT_WIDTH / 2,
-      y: EXPORT_HEIGHT / 2,
-      fontSize: 130,
-      color: "#ffffff",
-      fontFamily: "Impact",
-      bold: true,
-      italic: false,
-      strokeColor: "#000000",
-      strokeWidth: 12,
+      id: Date.now(), text: "Your Text",
+      x: EXPORT_WIDTH / 2, y: EXPORT_HEIGHT / 2,
+      fontSize: 130, color: "#ffffff",
+      fontFamily: "Impact", bold: true, italic: false,
+      strokeColor: "#000000", strokeWidth: 12,
     }
-    setTexts((prev) => [...prev, newText])
+    setTexts(prev => [...prev, newText])
     setSelectedId(newText.id)
     setEditingId(newText.id)
     setEditingText("Your Text")
@@ -254,12 +250,12 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
 
   const handleDelete = () => {
     if (selectedId === null) return
-    setTexts((prev) => prev.filter((t) => t.id !== selectedId))
+    setTexts(prev => prev.filter(t => t.id !== selectedId))
     setSelectedId(null)
   }
 
   const handleEditSave = () => {
-    setTexts((prev) => prev.map((t) => t.id === editingId ? { ...t, text: editingText } : t))
+    setTexts(prev => prev.map(t => t.id === editingId ? { ...t, text: editingText } : t))
     setEditingId(null)
     setEditingText("")
   }
@@ -279,8 +275,16 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
     }, 50)
   }
 
+  // ✅ Helper to convert hex to rgb display string
+  const hexToRgb = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `${r}, ${g}, ${b}`
+  }
+
   return (
-    <div className="flex flex-col items-center gap-4 w-full max-w-4xl mx-auto">
+    <div className="flex flex-col items-center gap-4 w-full">
 
       {/* Canvas */}
       <canvas
@@ -290,175 +294,249 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         style={{
           width: `${DISPLAY_WIDTH}px`,
           height: `${DISPLAY_HEIGHT}px`,
-          border: "2px solid #ccc",
-          borderRadius: "8px",
+          borderRadius: "12px",
           cursor: "move",
           display: "block",
+          border: "1px solid rgba(255,255,255,0.1)",
         }}
       />
 
-      {/* Edit text input */}
+      <p className="text-xs text-white/20">Click text to edit · Drag to move · Drag ⤡ handle to resize</p>
+
+      {/* Edit input */}
       {editingId !== null && (
-        <div className="flex gap-2 items-center bg-gray-100 p-3 rounded-lg border w-full">
+        <div className="flex gap-2 items-center bg-white/5 border border-white/10 p-3 rounded-xl w-full max-w-2xl">
           <input
             autoFocus
             type="text"
             value={editingText}
             onChange={(e) => setEditingText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleEditSave()}
-            className="border px-3 py-1 rounded text-black flex-1"
-            placeholder="Enter text..."
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-yellow-400/50 text-sm"
+            placeholder="Type your text..."
           />
-          <button onClick={handleEditSave} className="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
-          <button onClick={() => setEditingId(null)} className="bg-gray-400 text-white px-3 py-1 rounded">Cancel</button>
+          <button onClick={handleEditSave} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold px-4 py-2 rounded-lg text-sm">
+            Save
+          </button>
+          <button onClick={() => setEditingId(null)} className="bg-white/10 text-white/60 px-4 py-2 rounded-lg text-sm hover:bg-white/20 transition">
+            Cancel
+          </button>
         </div>
       )}
 
-      {/* Style controls — only show when text is selected */}
+      {/* Style controls */}
       {selectedText && (
-        <div className="w-full bg-gray-50 border rounded-xl p-4 flex flex-col gap-4">
+        <div className="w-full max-w-2xl bg-[#1a1a2e] border border-white/10 rounded-2xl p-5 flex flex-col gap-5">
 
-          {/* Style Presets */}
+          {/* Presets */}
           <div>
-            <p className="text-sm font-semibold mb-2">Style Presets</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Style Presets</p>
             <div className="flex gap-2 flex-wrap">
               {STYLE_PRESETS.map((preset) => (
-                <button
-                  key={preset.label}
-                  onClick={() => applyPreset(preset)}
-                  className="px-3 py-1 rounded-full border text-sm font-semibold hover:bg-gray-200"
-                >
+                <button key={preset.label} onClick={() => applyPreset(preset)}
+                  className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-semibold text-white hover:border-yellow-400/40 hover:bg-white/10 transition">
                   {preset.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Font Family */}
+          {/* Font */}
           <div>
-            <p className="text-sm font-semibold mb-2">Font</p>
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Font</p>
             <div className="flex gap-2 flex-wrap">
               {FONTS.map((font) => (
-                <button
-                  key={font}
-                  onClick={() => updateSelected({ fontFamily: font })}
-                  style={{ fontFamily: font }}
-                  className={`px-3 py-1 rounded border text-sm ${selectedText.fontFamily === font ? "bg-blue-600 text-white" : "hover:bg-gray-200"}`}
-                >
-                  {font}
+                <button key={font.value} onClick={() => updateSelected({ fontFamily: font.value })}
+                  style={{ fontFamily: font.value }}
+                  className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+                    selectedText.fontFamily === font.value
+                      ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent font-bold"
+                      : "bg-white/5 border-white/10 text-white/70 hover:border-yellow-400/30"
+                  }`}>
+                  {font.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Font Size */}
+          {/* Size */}
           <div>
-            <p className="text-sm font-semibold mb-2">Size: {Math.round(selectedText.fontSize / 10)}px</p>
-            <input
-              type="range"
-              min={50}
-              max={300}
-              value={selectedText.fontSize}
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">
+              Size: <span className="text-yellow-400">{Math.round(selectedText.fontSize / 10)}pt</span>
+              <span className="text-white/20 ml-2 normal-case text-xs">(or drag ⤡ on canvas)</span>
+            </p>
+            <input type="range" min={50} max={300} value={selectedText.fontSize}
               onChange={(e) => updateSelected({ fontSize: Number(e.target.value) })}
-              className="w-full"
+              className="w-full accent-yellow-400"
             />
           </div>
 
           {/* Bold / Italic */}
           <div className="flex gap-3">
-            <button
-              onClick={() => updateSelected({ bold: !selectedText.bold })}
-              className={`px-4 py-1 rounded border font-bold ${selectedText.bold ? "bg-blue-600 text-white" : "hover:bg-gray-200"}`}
-            >
-              B
-            </button>
-            <button
-              onClick={() => updateSelected({ italic: !selectedText.italic })}
-              className={`px-4 py-1 rounded border italic ${selectedText.italic ? "bg-blue-600 text-white" : "hover:bg-gray-200"}`}
-            >
-              I
-            </button>
+            <button onClick={() => updateSelected({ bold: !selectedText.bold })}
+              className={`px-5 py-1.5 rounded-lg border font-black text-sm transition ${
+                selectedText.bold
+                  ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent"
+                  : "bg-white/5 border-white/10 text-white/60 hover:border-yellow-400/30"
+              }`}>B</button>
+            <button onClick={() => updateSelected({ italic: !selectedText.italic })}
+              className={`px-5 py-1.5 rounded-lg border italic text-sm transition ${
+                selectedText.italic
+                  ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent"
+                  : "bg-white/5 border-white/10 text-white/60 hover:border-yellow-400/30"
+              }`}>I</button>
           </div>
 
-          {/* Text Color */}
+          {/* ✅ Text Color — RGB picker */}
           <div>
-            <p className="text-sm font-semibold mb-2">Text Color</p>
-            <div className="flex gap-2 flex-wrap items-center">
-              {COLOR_PRESETS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => updateSelected({ color: c })}
-                  style={{ backgroundColor: c, border: selectedText.color === c ? "3px solid #00aaff" : "2px solid #ccc" }}
-                  className="w-8 h-8 rounded-full"
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-3">Text Color</p>
+            <div className="flex items-center gap-4">
+              {/* Big color picker button */}
+              <label className="relative cursor-pointer group">
+                <div
+                  style={{ backgroundColor: selectedText.color }}
+                  className="w-12 h-12 rounded-xl border-2 border-white/20 group-hover:border-yellow-400/60 transition shadow-lg"
                 />
-              ))}
-              <input
-                type="color"
-                value={selectedText.color}
-                onChange={(e) => updateSelected({ color: e.target.value })}
-                className="w-8 h-8 rounded cursor-pointer border"
-                title="Custom color"
-              />
+                <input
+                  type="color"
+                  value={selectedText.color}
+                  onChange={(e) => updateSelected({ color: e.target.value })}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+              </label>
+              {/* RGB value display */}
+              <div className="flex flex-col gap-0.5">
+                <span className="text-white font-bold text-sm">{selectedText.color.toUpperCase()}</span>
+                <span className="text-white/30 text-xs">RGB({hexToRgb(selectedText.color)})</span>
+              </div>
+              {/* Quick white/black shortcuts */}
+              <div className="flex gap-2 ml-auto">
+                <button
+                  onClick={() => updateSelected({ color: "#ffffff" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#ffffff" }}
+                  title="White"
+                />
+                <button
+                  onClick={() => updateSelected({ color: "#000000" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#000000" }}
+                  title="Black"
+                />
+                <button
+                  onClick={() => updateSelected({ color: "#ffff00" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#ffff00" }}
+                  title="Yellow"
+                />
+                <button
+                  onClick={() => updateSelected({ color: "#ff4444" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#ff4444" }}
+                  title="Red"
+                />
+                <button
+                  onClick={() => updateSelected({ color: "#00ffcc" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#00ffcc" }}
+                  title="Neon"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Stroke Color */}
+          {/* ✅ Outline Color — RGB picker */}
           <div>
-            <p className="text-sm font-semibold mb-2">Outline Color</p>
-            <div className="flex gap-2 flex-wrap items-center">
-              {COLOR_PRESETS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => updateSelected({ strokeColor: c })}
-                  style={{ backgroundColor: c, border: selectedText.strokeColor === c ? "3px solid #00aaff" : "2px solid #ccc" }}
-                  className="w-8 h-8 rounded-full"
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-3">Outline Color</p>
+            <div className="flex items-center gap-4">
+              <label className="relative cursor-pointer group">
+                <div
+                  style={{ backgroundColor: selectedText.strokeColor }}
+                  className="w-12 h-12 rounded-xl border-2 border-white/20 group-hover:border-yellow-400/60 transition shadow-lg"
                 />
-              ))}
-              <input
-                type="color"
-                value={selectedText.strokeColor}
-                onChange={(e) => updateSelected({ strokeColor: e.target.value })}
-                className="w-8 h-8 rounded cursor-pointer border"
-                title="Custom outline color"
-              />
+                <input
+                  type="color"
+                  value={selectedText.strokeColor}
+                  onChange={(e) => updateSelected({ strokeColor: e.target.value })}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+              </label>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-white font-bold text-sm">{selectedText.strokeColor.toUpperCase()}</span>
+                <span className="text-white/30 text-xs">RGB({hexToRgb(selectedText.strokeColor)})</span>
+              </div>
+              <div className="flex gap-2 ml-auto">
+                <button
+                  onClick={() => updateSelected({ strokeColor: "#000000" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#000000" }}
+                  title="Black"
+                />
+                <button
+                  onClick={() => updateSelected({ strokeColor: "#ffffff" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#ffffff" }}
+                  title="White"
+                />
+                <button
+                  onClick={() => updateSelected({ strokeColor: "#ff4400" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#ff4400" }}
+                  title="Orange"
+                />
+                <button
+                  onClick={() => updateSelected({ strokeColor: "#0055ff" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#0055ff" }}
+                  title="Blue"
+                />
+                <button
+                  onClick={() => updateSelected({ strokeColor: "#ff00ff" })}
+                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
+                  style={{ backgroundColor: "#ff00ff" }}
+                  title="Purple"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Stroke Width */}
+          {/* Outline Thickness */}
           <div>
-            <p className="text-sm font-semibold mb-2">Outline Thickness: {selectedText.strokeWidth}</p>
-            <input
-              type="range"
-              min={0}
-              max={30}
-              value={selectedText.strokeWidth}
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">
+              Outline Thickness: <span className="text-yellow-400">{selectedText.strokeWidth}px</span>
+            </p>
+            <input type="range" min={0} max={30} value={selectedText.strokeWidth}
               onChange={(e) => updateSelected({ strokeWidth: Number(e.target.value) })}
-              className="w-full"
+              className="w-full accent-yellow-400"
             />
           </div>
 
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="flex gap-4 mt-2">
-        <button onClick={addText} className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700">
+      {/* Actions */}
+      <div className="flex gap-3 mt-1">
+        <button onClick={addText}
+          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black px-6 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-orange-500/20">
           + Add Text
         </button>
         {selectedId !== null && (
-          <button onClick={handleDelete} className="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700">
-            🗑 Delete Text
+          <button onClick={handleDelete}
+            className="bg-red-500/10 border border-red-500/30 text-red-400 font-bold px-6 py-2.5 rounded-xl hover:bg-red-500/20 transition">
+            🗑 Delete
           </button>
         )}
-        <button onClick={downloadImage} className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700">
+        <button onClick={downloadImage}
+          className="bg-white/5 border border-white/10 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-white/10 transition">
           ⬇ Download
         </button>
       </div>
 
-      {downloaded && <p className="text-green-500 font-semibold">✅ Downloaded!</p>}
+      {downloaded && <p className="text-green-400 font-semibold text-sm">✅ Downloaded!</p>}
     </div>
   )
 }
