@@ -18,14 +18,29 @@ export async function POST(req: Request) {
     const { type, data } = body
 
     console.log("Polar webhook received:", type)
+    console.log("Webhook data:", JSON.stringify(data, null, 2))
 
-    // Handle successful subscription or order
-    if (type === "subscription.created" || type === "order.created") {
-      const customerEmail = data?.customer?.email || data?.user?.email
-      const productId = data?.productId || data?.product?.id
+    if (
+      type === "subscription.created" ||
+      type === "order.created" ||
+      type === "subscription.active"
+    ) {
+      const customerEmail =
+        data?.customer?.email ||
+        data?.user?.email ||
+        data?.subscription?.customer?.email
+
+      const productId =
+        data?.productId ||
+        data?.product?.id ||
+        data?.subscription?.product?.id ||
+        data?.items?.[0]?.product?.id
+
+      console.log("Customer email:", customerEmail)
+      console.log("Product ID:", productId)
 
       if (!customerEmail || !productId) {
-        console.error("Missing email or productId", { customerEmail, productId })
+        console.error("Missing email or productId")
         return NextResponse.json({ error: "Missing data" }, { status: 400 })
       }
 
@@ -36,53 +51,26 @@ export async function POST(req: Request) {
       }
 
       // Find user by email
-      const { data: users, error: userError } = await supabase
+      const { data: authUsers } = await supabase.auth.admin.listUsers()
+      const user = authUsers?.users?.find(u => u.email === customerEmail)
+
+      if (!user) {
+        console.error("User not found:", customerEmail)
+        return NextResponse.json({ error: "User not found" }, { status: 404 })
+      }
+
+      // Update credits
+      const { error: updateError } = await supabase
         .from("profiles")
-        .select("id")
-        .eq("id", (
-          await supabase.auth.admin.listUsers()
-        ).data.users.find(u => u.email === customerEmail)?.id || "")
-        .single()
+        .update({ image_credits: credits })
+        .eq("id", user.id)
 
-      if (userError || !users) {
-        // Try finding via auth users directly
-        const { data: authUsers } = await supabase.auth.admin.listUsers()
-        const user = authUsers.users.find(u => u.email === customerEmail)
-
-        if (!user) {
-          console.error("User not found:", customerEmail)
-          return NextResponse.json({ error: "User not found" }, { status: 404 })
-        }
-
-        // Update credits
-        await supabase
-          .from("profiles")
-          .update({ image_credits: credits })
-          .eq("id", user.id)
-
-        console.log(`Updated ${customerEmail} to ${credits} credits`)
+      if (updateError) {
+        console.error("Failed to update credits:", updateError)
+        return NextResponse.json({ error: "Failed to update credits" }, { status: 500 })
       }
-    }
 
-    // Handle monthly renewal — reset credits
-    if (type === "subscription.active") {
-      const customerEmail = data?.customer?.email
-      const productId = data?.product?.id
-
-      if (customerEmail && productId) {
-        const credits = PLAN_CREDITS[productId]
-        if (credits) {
-          const { data: authUsers } = await supabase.auth.admin.listUsers()
-          const user = authUsers.users.find(u => u.email === customerEmail)
-          if (user) {
-            await supabase
-              .from("profiles")
-              .update({ image_credits: credits })
-              .eq("id", user.id)
-            console.log(`Renewed ${customerEmail} to ${credits} credits`)
-          }
-        }
-      }
+      console.log(`Successfully updated ${customerEmail} to ${credits} credits`)
     }
 
     return NextResponse.json({ received: true })
