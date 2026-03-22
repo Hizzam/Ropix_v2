@@ -98,7 +98,17 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
     if (!canvas) return
     const ctx = canvas.getContext("2d")!
     ctx.clearRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
-    ctx.drawImage(img, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
+   const imgAspect = img.naturalWidth / img.naturalHeight
+const canvasAspect = EXPORT_WIDTH / EXPORT_HEIGHT
+let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight
+if (imgAspect > canvasAspect) {
+  sw = img.naturalHeight * canvasAspect
+  sx = (img.naturalWidth - sw) / 2
+} else {
+  sh = img.naturalWidth / canvasAspect
+  sy = (img.naturalHeight - sh) / 2
+}
+ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
 
     textItems.forEach((item) => {
       ctx.save()

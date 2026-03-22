@@ -24,6 +24,7 @@ export default function Dashboard() {
   const [history, setHistory] = useState<GeneratedImage[]>([])
   const [loading, setLoading] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [showCreditPopup, setShowCreditPopup] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,7 +44,10 @@ export default function Dashboard() {
 
   const handleGenerate = async () => {
     if (!uploadedImage) return alert("Upload an image first")
-    if (credits === 0) return alert("No credits left!")
+    if (credits === 0) {
+      setShowCreditPopup(true)
+      return
+    }
     setLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -92,8 +96,33 @@ export default function Dashboard() {
       <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
 
+      {/* Out of Credits Popup */}
+      {showCreditPopup && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+          <div className="bg-[#1a1a2e] border border-white/10 rounded-2xl p-8 max-w-md w-full flex flex-col items-center gap-5 text-center">
+            <div className="text-6xl">⚡</div>
+            <h2 className="text-2xl font-black text-white">Out of Credits!</h2>
+            <p className="text-white/50 text-sm leading-relaxed">
+              You have used all your credits. Purchase a plan to keep generating amazing Roblox thumbnails.
+            </p>
+            <Link
+              href="/pricing"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:opacity-90 transition shadow-lg shadow-orange-500/20"
+            >
+              🚀 Purchase Credits
+            </Link>
+            <button
+              onClick={() => setShowCreditPopup(false)}
+              className="text-white/30 text-sm hover:text-white/60 transition"
+            >
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-white/10 sticky top-0 bg-[#0f0f1a]/80 backdrop-blur-sm z-50">
+      <nav className="flex items-center justify-between px-8 py-4 border-b border-white/10 sticky top-0 bg-[#0f0f1a]/80 backdrop-blur-sm z-40">
         <Link href="/">
           <span className="text-2xl font-black bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 bg-clip-text text-transparent">
             ROPIX
@@ -105,6 +134,9 @@ export default function Dashboard() {
             <span className="text-sm font-bold">{credits !== null ? `${credits} Credits` : "..."}</span>
           </div>
           {userEmail && <span className="text-white/30 text-sm hidden md:block">{userEmail}</span>}
+          <Link href="/pricing" className="text-sm text-yellow-400 font-semibold hover:text-yellow-300 transition hidden md:block">
+            Buy Credits
+          </Link>
           <button onClick={handleSignOut} className="text-sm text-white/30 hover:text-white transition">Sign out</button>
         </div>
       </nav>
@@ -168,10 +200,9 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* ✅ FIXED: Thumbnail Prompt */}
               <div>
                 <label className="text-xs text-white/40 uppercase tracking-widest font-bold block mb-1">
-                  Thumbnail Prompt
+                  Thumbnail Prompt <span className="text-white/20 normal-case font-normal">(Optional)</span>
                 </label>
                 <p className="text-xs text-white/20 mb-2">Describe the vibe, scene or mood you want</p>
                 <input type="text" value={addedText} onChange={(e) => setAddedText(e.target.value)}
@@ -180,13 +211,14 @@ export default function Dashboard() {
                 />
               </div>
 
-              <button onClick={handleGenerate} disabled={credits === 0 || loading}
+              {/* ✅ Button always active — popup shows when credits = 0 */}
+              <button onClick={handleGenerate} disabled={loading}
                 className={`mt-auto w-full py-3.5 rounded-xl font-black text-lg transition ${
-                  credits === 0 || loading
+                  loading
                     ? "bg-white/5 text-white/20 cursor-not-allowed"
                     : "bg-gradient-to-r from-yellow-400 to-orange-500 text-black hover:opacity-90 shadow-lg shadow-orange-500/20"
                 }`}>
-                {loading ? "⚙️ Generating..." : credits === 0 ? "No Credits" : "⚡ Generate (1 Credit)"}
+                {loading ? "⚙️ Generating..." : "⚡ Generate (1 Credit)"}
               </button>
             </div>
           </div>
@@ -221,7 +253,7 @@ export default function Dashboard() {
                       <span className="text-xs bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-2 py-0.5 rounded-full font-bold">{item.style}</span>
                       {item.genre && <span className="text-xs bg-white/5 text-white/40 border border-white/10 px-2 py-0.5 rounded-full">{item.genre}</span>}
                     </div>
-                    {item.added_text && <p className="text-xs text-white/30 truncate">"{item.added_text}"</p>}
+                    {item.added_text && <p className="text-xs text-white/30 truncate">&quot;{item.added_text}&quot;</p>}
                     <p className="text-xs text-white/15">Click to edit →</p>
                   </div>
                 </div>
