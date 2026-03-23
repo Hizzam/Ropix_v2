@@ -23,12 +23,12 @@ export default function Signup() {
 
   const handleGoogleSignup = async () => {
     setGoogleLoading(true)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    })
+   const { error } = await supabase.auth.signInWithOAuth({
+  provider: "google",
+  options: {
+    redirectTo: `https://www.ropix.xyz/dashboard`,
+  },
+})
     if (error) {
       alert(error.message)
       setGoogleLoading(false)
