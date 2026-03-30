@@ -92,7 +92,7 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#0f0f1a] text-white">
+    <div className="min-h-screen bg-[#0f0f1a] text-white overflow-x-hidden">
       <div className="fixed top-0 left-1/4 w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -109,7 +109,7 @@ export default function Dashboard() {
               href="/pricing"
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:opacity-90 transition shadow-lg shadow-orange-500/20"
             >
-              🚀 Purchase Credits
+              Purchase Credits
             </Link>
             <button
               onClick={() => setShowCreditPopup(false)}
@@ -122,43 +122,43 @@ export default function Dashboard() {
       )}
 
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-white/10 sticky top-0 bg-[#0f0f1a]/80 backdrop-blur-sm z-40">
+      <nav className="flex items-center justify-between px-4 md:px-8 py-4 border-b border-white/10 sticky top-0 bg-[#0f0f1a]/80 backdrop-blur-sm z-40">
         <Link href="/">
-          <span className="text-2xl font-black bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 bg-clip-text text-transparent">
+          <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-500 bg-clip-text text-transparent">
             ROPIX
           </span>
         </Link>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5">
-            <span className="text-yellow-400 text-sm">⚡</span>
-            <span className="text-sm font-bold">{credits !== null ? `${credits} Credits` : "..."}</span>
+        <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1.5">
+            <span className="text-yellow-400 text-xs">⚡</span>
+            <span className="text-xs md:text-sm font-bold">{credits !== null ? `${credits} Credits` : "..."}</span>
           </div>
           {userEmail && <span className="text-white/30 text-sm hidden md:block">{userEmail}</span>}
-          <Link href="/pricing" className="text-sm text-yellow-400 font-semibold hover:text-yellow-300 transition hidden md:block">
+          <Link href="/pricing" className="text-xs md:text-sm text-yellow-400 font-semibold hover:text-yellow-300 transition hidden md:block">
             Buy Credits
           </Link>
-          <button onClick={handleSignOut} className="text-sm text-white/30 hover:text-white transition">Sign out</button>
+          <button onClick={handleSignOut} className="text-xs md:text-sm text-white/30 hover:text-white transition">Sign out</button>
         </div>
       </nav>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 flex flex-col gap-8">
+      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10 flex flex-col gap-6 md:gap-8">
 
         {/* Generator */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-          <h2 className="text-2xl font-black mb-6">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-8">
+          <h2 className="text-xl md:text-2xl font-black mb-5 md:mb-6">
             🎮 Generate <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Thumbnail</span>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
 
             {/* Upload */}
             <div className="flex flex-col gap-3">
               <label className="text-xs text-white/40 uppercase tracking-widest font-bold">Screenshot</label>
-              <label className="flex flex-col items-center justify-center h-52 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-yellow-400/40 transition bg-white/[0.02]">
+              <label className="flex flex-col items-center justify-center h-44 md:h-52 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-yellow-400/40 transition bg-white/[0.02]">
                 {uploadedImage ? (
                   <img src={uploadedImage} alt="preview" className="w-full h-full object-contain rounded-xl" />
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-white/20">
-                    <span className="text-4xl">📸</span>
+                    <span className="text-3xl md:text-4xl">📸</span>
                     <span className="text-xs">Click to upload PNG or JPG</span>
                   </div>
                 )}
@@ -181,7 +181,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-3 gap-2">
                   {STYLES.map((s) => (
                     <button key={s.value} onClick={() => setSelectedStyle(s.value)}
-                      className={`py-2 px-3 rounded-xl text-sm font-semibold border transition ${
+                      className={`py-2 px-2 md:px-3 rounded-xl text-xs md:text-sm font-semibold border transition ${
                         selectedStyle === s.value
                           ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent shadow-lg shadow-orange-500/20"
                           : "bg-white/5 border-white/10 text-white/60 hover:border-yellow-400/30"
@@ -211,9 +211,8 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* ✅ Button always active — popup shows when credits = 0 */}
               <button onClick={handleGenerate} disabled={loading}
-                className={`mt-auto w-full py-3.5 rounded-xl font-black text-lg transition ${
+                className={`mt-auto w-full py-3.5 rounded-xl font-black text-base md:text-lg transition ${
                   loading
                     ? "bg-white/5 text-white/20 cursor-not-allowed"
                     : "bg-gradient-to-r from-yellow-400 to-orange-500 text-black hover:opacity-90 shadow-lg shadow-orange-500/20"
@@ -226,10 +225,15 @@ export default function Dashboard() {
 
         {/* Editor */}
         {generatedImage && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-            <h2 className="text-2xl font-black mb-6">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-8">
+            <h2 className="text-xl md:text-2xl font-black mb-4 md:mb-6">
               ✏️ Edit <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Thumbnail</span>
             </h2>
+            {/* Mobile warning */}
+            <div className="md:hidden bg-yellow-400/10 border border-yellow-400/20 rounded-xl p-4 mb-4 text-center">
+              <p className="text-yellow-400 font-bold text-sm">💻 Best on Desktop</p>
+              <p className="text-white/50 text-xs mt-1">For full editing with drag and resize, please use a desktop browser.</p>
+            </div>
             <ThumbnailEditor imageUrl={generatedImage} />
           </div>
         )}
@@ -237,24 +241,23 @@ export default function Dashboard() {
         {/* History */}
         {history.length > 0 && (
           <div>
-            <h2 className="text-2xl font-black mb-6">
+            <h2 className="text-xl md:text-2xl font-black mb-4 md:mb-6">
               🕹️ <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">History</span>
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {history.map((item) => (
                 <div key={item.id} onClick={() => setGeneratedImage(item.image_url)}
                   className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-yellow-400/30 transition cursor-pointer group">
-                  <div className="relative h-36 overflow-hidden">
+                  <div className="relative h-28 md:h-36 overflow-hidden">
                     <img src={item.image_url} alt="generated" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   </div>
-                  <div className="p-3 flex flex-col gap-1.5">
-                    <div className="flex gap-2 flex-wrap">
+                  <div className="p-2 md:p-3 flex flex-col gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       <span className="text-xs bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-2 py-0.5 rounded-full font-bold">{item.style}</span>
                       {item.genre && <span className="text-xs bg-white/5 text-white/40 border border-white/10 px-2 py-0.5 rounded-full">{item.genre}</span>}
                     </div>
                     {item.added_text && <p className="text-xs text-white/30 truncate">&quot;{item.added_text}&quot;</p>}
-                    <p className="text-xs text-white/15">Click to edit →</p>
                   </div>
                 </div>
               ))}

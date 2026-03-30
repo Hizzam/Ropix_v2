@@ -6,6 +6,7 @@ const EXPORT_WIDTH = 1920
 const EXPORT_HEIGHT = 1080
 const DISPLAY_WIDTH = 800
 const DISPLAY_HEIGHT = 450
+const MOVE_STEP = 50 // how many pixels to move per tap
 
 interface TextItem {
   id: number
@@ -55,6 +56,7 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingText, setEditingText] = useState("")
   const [downloaded, setDownloaded] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const dragMode = useRef<DragMode>(null)
   const dragOffset = useRef({ x: 0, y: 0 })
   const dragStartFontSize = useRef(0)
@@ -62,6 +64,13 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
   const isDragging = useRef(false)
 
   const selectedText = texts.find((t) => t.id === selectedId) ?? null
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768)
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
 
   useEffect(() => {
     const img = new Image()
@@ -98,17 +107,18 @@ export default function ThumbnailEditor({ imageUrl }: { imageUrl: string }) {
     if (!canvas) return
     const ctx = canvas.getContext("2d")!
     ctx.clearRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
-   const imgAspect = img.naturalWidth / img.naturalHeight
-const canvasAspect = EXPORT_WIDTH / EXPORT_HEIGHT
-let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight
-if (imgAspect > canvasAspect) {
-  sw = img.naturalHeight * canvasAspect
-  sx = (img.naturalWidth - sw) / 2
-} else {
-  sh = img.naturalWidth / canvasAspect
-  sy = (img.naturalHeight - sh) / 2
-}
-ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
+
+    const imgAspect = img.naturalWidth / img.naturalHeight
+    const canvasAspect = EXPORT_WIDTH / EXPORT_HEIGHT
+    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight
+    if (imgAspect > canvasAspect) {
+      sw = img.naturalHeight * canvasAspect
+      sx = (img.naturalWidth - sw) / 2
+    } else {
+      sh = img.naturalWidth / canvasAspect
+      sy = (img.naturalHeight - sh) / 2
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
 
     textItems.forEach((item) => {
       ctx.save()
@@ -126,7 +136,6 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
       }
       ctx.fillStyle = item.color
       ctx.fillText(item.text, item.x, item.y)
-
       if (item.id === activeId) {
         const b = getTextBounds(ctx, item)
         ctx.shadowColor = "transparent"
@@ -157,8 +166,7 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
   }
 
   const hitTest = (pos: { x: number; y: number }) => {
-    const canvas = canvasRef.current!
-    const ctx = canvas.getContext("2d")!
+    const ctx = canvasRef.current!.getContext("2d")!
     if (selectedId !== null) {
       const sel = texts.find(t => t.id === selectedId)
       if (sel) {
@@ -204,16 +212,12 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
     const pos = getMousePos(e)
     if (dragMode.current === "move") {
       setTexts(prev => prev.map(t =>
-        t.id === selectedId
-          ? { ...t, x: pos.x - dragOffset.current.x, y: pos.y - dragOffset.current.y }
-          : t
+        t.id === selectedId ? { ...t, x: pos.x - dragOffset.current.x, y: pos.y - dragOffset.current.y } : t
       ))
     } else if (dragMode.current === "resize-br") {
       const delta = pos.y - dragStartY.current
       const newSize = Math.max(30, Math.min(400, dragStartFontSize.current + delta))
-      setTexts(prev => prev.map(t =>
-        t.id === selectedId ? { ...t, fontSize: Math.round(newSize) } : t
-      ))
+      setTexts(prev => prev.map(t => t.id === selectedId ? { ...t, fontSize: Math.round(newSize) } : t))
     }
     if (canvasRef.current) canvasRef.current.style.cursor = dragMode.current === "resize-br" ? "nwse-resize" : "move"
   }
@@ -232,6 +236,26 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
     dragMode.current = null
     isDragging.current = false
     if (canvasRef.current) canvasRef.current.style.cursor = "move"
+  }
+
+  // ✅ Mobile directional movement
+  const moveText = (dx: number, dy: number) => {
+    if (selectedId === null) return
+    setTexts(prev => prev.map(t =>
+      t.id === selectedId
+        ? { ...t, x: t.x + dx, y: t.y + dy }
+        : t
+    ))
+  }
+
+  // ✅ Mobile font size
+  const changeFontSize = (delta: number) => {
+    if (selectedId === null) return
+    setTexts(prev => prev.map(t =>
+      t.id === selectedId
+        ? { ...t, fontSize: Math.max(30, Math.min(400, t.fontSize + delta)) }
+        : t
+    ))
   }
 
   const updateSelected = (updates: Partial<TextItem>) => {
@@ -285,7 +309,6 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
     }, 50)
   }
 
-  // ✅ Helper to convert hex to rgb display string
   const hexToRgb = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16)
     const g = parseInt(hex.slice(3, 5), 16)
@@ -293,46 +316,61 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
     return `${r}, ${g}, ${b}`
   }
 
+  const TEXT_QUICK_COLORS = ["#ffffff", "#000000", "#ffff00", "#ff4444", "#00ffcc"]
+  const OUTLINE_QUICK_COLORS = ["#000000", "#ffffff", "#ff4400", "#0055ff", "#ff00ff"]
+
   return (
     <div className="flex flex-col items-center gap-4 w-full">
 
-      {/* Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={EXPORT_WIDTH}
-        height={EXPORT_HEIGHT}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        style={{
-          width: `${DISPLAY_WIDTH}px`,
-          height: `${DISPLAY_HEIGHT}px`,
-          borderRadius: "12px",
-          cursor: "move",
-          display: "block",
-          border: "1px solid rgba(255,255,255,0.1)",
-        }}
-      />
+      {/* Mobile notice */}
+      {isMobile && (
+        <div className="w-full bg-yellow-400/10 border border-yellow-400/20 rounded-xl p-3 text-center">
+          <p className="text-yellow-400 font-bold text-xs">💻 For optimal experience use desktop</p>
+          <p className="text-white/40 text-xs mt-0.5">Use the arrow buttons below to move text on mobile</p>
+        </div>
+      )}
 
-      <p className="text-xs text-white/20">Click text to edit · Drag to move · Drag ⤡ handle to resize</p>
+      {/* Canvas */}
+      <div className="w-full overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          width={EXPORT_WIDTH}
+          height={EXPORT_HEIGHT}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          style={{
+            width: "100%",
+            maxWidth: `${DISPLAY_WIDTH}px`,
+            height: "auto",
+            borderRadius: "12px",
+            cursor: "move",
+            display: "block",
+            margin: "0 auto",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        />
+      </div>
+
+      <p className="text-xs text-white/20 text-center hidden md:block">Click text to edit · Drag to move · Drag ⤡ to resize</p>
 
       {/* Edit input */}
       {editingId !== null && (
-        <div className="flex gap-2 items-center bg-white/5 border border-white/10 p-3 rounded-xl w-full max-w-2xl">
+        <div className="flex gap-2 items-center bg-white/5 border border-white/10 p-3 rounded-xl w-full">
           <input
             autoFocus
             type="text"
             value={editingText}
             onChange={(e) => setEditingText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleEditSave()}
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-yellow-400/50 text-sm"
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-yellow-400/50 text-sm min-w-0"
             placeholder="Type your text..."
           />
-          <button onClick={handleEditSave} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold px-4 py-2 rounded-lg text-sm">
+          <button onClick={handleEditSave} className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold px-3 py-2 rounded-lg text-sm whitespace-nowrap">
             Save
           </button>
-          <button onClick={() => setEditingId(null)} className="bg-white/10 text-white/60 px-4 py-2 rounded-lg text-sm hover:bg-white/20 transition">
+          <button onClick={() => setEditingId(null)} className="bg-white/10 text-white/60 px-3 py-2 rounded-lg text-sm hover:bg-white/20 transition whitespace-nowrap">
             Cancel
           </button>
         </div>
@@ -340,15 +378,77 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
 
       {/* Style controls */}
       {selectedText && (
-        <div className="w-full max-w-2xl bg-[#1a1a2e] border border-white/10 rounded-2xl p-5 flex flex-col gap-5">
+        <div className="w-full bg-[#1a1a2e] border border-white/10 rounded-2xl p-4 flex flex-col gap-4">
+
+          {/* ✅ Mobile directional controls */}
+          {isMobile && (
+            <div>
+              <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-3">Move Text</p>
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={() => moveText(0, -MOVE_STEP)}
+                  className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl text-white text-xl font-bold hover:bg-white/20 transition flex items-center justify-center"
+                >
+                  ▲
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => moveText(-MOVE_STEP, 0)}
+                    className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl text-white text-xl font-bold hover:bg-white/20 transition flex items-center justify-center"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedId !== null) {
+                        const hit = texts.find(t => t.id === selectedId)
+                        if (hit) { setEditingId(hit.id); setEditingText(hit.text) }
+                      }
+                    }}
+                    className="w-12 h-12 bg-yellow-400/20 border border-yellow-400/30 rounded-xl text-yellow-400 text-xs font-bold hover:bg-yellow-400/30 transition flex items-center justify-center"
+                  >
+                    EDIT
+                  </button>
+                  <button
+                    onClick={() => moveText(MOVE_STEP, 0)}
+                    className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl text-white text-xl font-bold hover:bg-white/20 transition flex items-center justify-center"
+                  >
+                    ▶
+                  </button>
+                </div>
+                <button
+                  onClick={() => moveText(0, MOVE_STEP)}
+                  className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl text-white text-xl font-bold hover:bg-white/20 transition flex items-center justify-center"
+                >
+                  ▼
+                </button>
+                {/* Size controls */}
+                <div className="flex gap-3 mt-1">
+                  <button
+                    onClick={() => changeFontSize(-20)}
+                    className="px-5 py-2 bg-white/10 border border-white/20 rounded-xl text-white font-bold hover:bg-white/20 transition text-sm"
+                  >
+                    A-
+                  </button>
+                  <span className="text-white/40 text-xs self-center">Size: {Math.round(selectedText.fontSize / 10)}pt</span>
+                  <button
+                    onClick={() => changeFontSize(20)}
+                    className="px-5 py-2 bg-white/10 border border-white/20 rounded-xl text-white font-bold hover:bg-white/20 transition text-sm"
+                  >
+                    A+
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Presets */}
           <div>
             <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Style Presets</p>
-            <div className="flex gap-2 flex-wrap">
+            <div className="grid grid-cols-3 gap-2">
               {STYLE_PRESETS.map((preset) => (
                 <button key={preset.label} onClick={() => applyPreset(preset)}
-                  className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-semibold text-white hover:border-yellow-400/40 hover:bg-white/10 transition">
+                  className="px-2 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-white hover:border-yellow-400/40 transition text-center">
                   {preset.label}
                 </button>
               ))}
@@ -358,11 +458,11 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
           {/* Font */}
           <div>
             <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Font</p>
-            <div className="flex gap-2 flex-wrap">
+            <div className="grid grid-cols-3 gap-2">
               {FONTS.map((font) => (
                 <button key={font.value} onClick={() => updateSelected({ fontFamily: font.value })}
                   style={{ fontFamily: font.value }}
-                  className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+                  className={`px-2 py-1.5 rounded-lg border text-xs transition truncate ${
                     selectedText.fontFamily === font.value
                       ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent font-bold"
                       : "bg-white/5 border-white/10 text-white/70 hover:border-yellow-400/30"
@@ -373,11 +473,10 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
             </div>
           </div>
 
-          {/* Size */}
-          <div>
+          {/* Size — desktop only slider */}
+          <div className="hidden md:block">
             <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">
               Size: <span className="text-yellow-400">{Math.round(selectedText.fontSize / 10)}pt</span>
-              <span className="text-white/20 ml-2 normal-case text-xs">(or drag ⤡ on canvas)</span>
             </p>
             <input type="range" min={50} max={300} value={selectedText.fontSize}
               onChange={(e) => updateSelected({ fontSize: Number(e.target.value) })}
@@ -389,127 +488,56 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
           <div className="flex gap-3">
             <button onClick={() => updateSelected({ bold: !selectedText.bold })}
               className={`px-5 py-1.5 rounded-lg border font-black text-sm transition ${
-                selectedText.bold
-                  ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent"
-                  : "bg-white/5 border-white/10 text-white/60 hover:border-yellow-400/30"
+                selectedText.bold ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent" : "bg-white/5 border-white/10 text-white/60"
               }`}>B</button>
             <button onClick={() => updateSelected({ italic: !selectedText.italic })}
               className={`px-5 py-1.5 rounded-lg border italic text-sm transition ${
-                selectedText.italic
-                  ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent"
-                  : "bg-white/5 border-white/10 text-white/60 hover:border-yellow-400/30"
+                selectedText.italic ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent" : "bg-white/5 border-white/10 text-white/60"
               }`}>I</button>
           </div>
 
-          {/* ✅ Text Color — RGB picker */}
+          {/* Text Color */}
           <div>
-            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-3">Text Color</p>
-            <div className="flex items-center gap-4">
-              {/* Big color picker button */}
-              <label className="relative cursor-pointer group">
-                <div
-                  style={{ backgroundColor: selectedText.color }}
-                  className="w-12 h-12 rounded-xl border-2 border-white/20 group-hover:border-yellow-400/60 transition shadow-lg"
-                />
-                <input
-                  type="color"
-                  value={selectedText.color}
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Text Color</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="relative cursor-pointer">
+                <div style={{ backgroundColor: selectedText.color }} className="w-10 h-10 rounded-xl border-2 border-white/20 flex-shrink-0" />
+                <input type="color" value={selectedText.color}
                   onChange={(e) => updateSelected({ color: e.target.value })}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                />
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
               </label>
-              {/* RGB value display */}
-              <div className="flex flex-col gap-0.5">
-                <span className="text-white font-bold text-sm">{selectedText.color.toUpperCase()}</span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-white font-bold text-xs">{selectedText.color.toUpperCase()}</span>
                 <span className="text-white/30 text-xs">RGB({hexToRgb(selectedText.color)})</span>
               </div>
-              {/* Quick white/black shortcuts */}
-              <div className="flex gap-2 ml-auto">
-                <button
-                  onClick={() => updateSelected({ color: "#ffffff" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#ffffff" }}
-                  title="White"
-                />
-                <button
-                  onClick={() => updateSelected({ color: "#000000" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#000000" }}
-                  title="Black"
-                />
-                <button
-                  onClick={() => updateSelected({ color: "#ffff00" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#ffff00" }}
-                  title="Yellow"
-                />
-                <button
-                  onClick={() => updateSelected({ color: "#ff4444" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#ff4444" }}
-                  title="Red"
-                />
-                <button
-                  onClick={() => updateSelected({ color: "#00ffcc" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#00ffcc" }}
-                  title="Neon"
-                />
+              <div className="flex gap-2 ml-auto flex-wrap">
+                {TEXT_QUICK_COLORS.map(c => (
+                  <button key={c} onClick={() => updateSelected({ color: c })}
+                    style={{ backgroundColor: c, border: selectedText.color === c ? "3px solid #facc15" : "2px solid rgba(255,255,255,0.15)", width: 28, height: 28, borderRadius: "50%", flexShrink: 0 }} />
+                ))}
               </div>
             </div>
           </div>
 
-          {/* ✅ Outline Color — RGB picker */}
+          {/* Outline Color */}
           <div>
-            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-3">Outline Color</p>
-            <div className="flex items-center gap-4">
-              <label className="relative cursor-pointer group">
-                <div
-                  style={{ backgroundColor: selectedText.strokeColor }}
-                  className="w-12 h-12 rounded-xl border-2 border-white/20 group-hover:border-yellow-400/60 transition shadow-lg"
-                />
-                <input
-                  type="color"
-                  value={selectedText.strokeColor}
+            <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">Outline Color</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="relative cursor-pointer">
+                <div style={{ backgroundColor: selectedText.strokeColor }} className="w-10 h-10 rounded-xl border-2 border-white/20 flex-shrink-0" />
+                <input type="color" value={selectedText.strokeColor}
                   onChange={(e) => updateSelected({ strokeColor: e.target.value })}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                />
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
               </label>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-white font-bold text-sm">{selectedText.strokeColor.toUpperCase()}</span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-white font-bold text-xs">{selectedText.strokeColor.toUpperCase()}</span>
                 <span className="text-white/30 text-xs">RGB({hexToRgb(selectedText.strokeColor)})</span>
               </div>
-              <div className="flex gap-2 ml-auto">
-                <button
-                  onClick={() => updateSelected({ strokeColor: "#000000" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#000000" }}
-                  title="Black"
-                />
-                <button
-                  onClick={() => updateSelected({ strokeColor: "#ffffff" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#ffffff" }}
-                  title="White"
-                />
-                <button
-                  onClick={() => updateSelected({ strokeColor: "#ff4400" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#ff4400" }}
-                  title="Orange"
-                />
-                <button
-                  onClick={() => updateSelected({ strokeColor: "#0055ff" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#0055ff" }}
-                  title="Blue"
-                />
-                <button
-                  onClick={() => updateSelected({ strokeColor: "#ff00ff" })}
-                  className="w-8 h-8 rounded-lg border border-white/20 hover:border-yellow-400/60 transition"
-                  style={{ backgroundColor: "#ff00ff" }}
-                  title="Purple"
-                />
+              <div className="flex gap-2 ml-auto flex-wrap">
+                {OUTLINE_QUICK_COLORS.map(c => (
+                  <button key={c} onClick={() => updateSelected({ strokeColor: c })}
+                    style={{ backgroundColor: c, border: selectedText.strokeColor === c ? "3px solid #facc15" : "2px solid rgba(255,255,255,0.15)", width: 28, height: 28, borderRadius: "50%", flexShrink: 0 }} />
+                ))}
               </div>
             </div>
           </div>
@@ -524,29 +552,28 @@ ctx.drawImage(img, sx, sy, sw, sh, 0, 0, EXPORT_WIDTH, EXPORT_HEIGHT)
               className="w-full accent-yellow-400"
             />
           </div>
-
         </div>
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 mt-1">
+      <div className="flex gap-3 mt-1 w-full">
         <button onClick={addText}
-          className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black px-6 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-orange-500/20">
+          className="flex-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black px-4 py-2.5 rounded-xl hover:opacity-90 transition shadow-lg shadow-orange-500/20 text-sm">
           + Add Text
         </button>
         {selectedId !== null && (
           <button onClick={handleDelete}
-            className="bg-red-500/10 border border-red-500/30 text-red-400 font-bold px-6 py-2.5 rounded-xl hover:bg-red-500/20 transition">
-            🗑 Delete
+            className="bg-red-500/10 border border-red-500/30 text-red-400 font-bold px-4 py-2.5 rounded-xl hover:bg-red-500/20 transition text-sm">
+            Delete
           </button>
         )}
         <button onClick={downloadImage}
-          className="bg-white/5 border border-white/10 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-white/10 transition">
-          ⬇ Download
+          className="flex-1 bg-white/5 border border-white/10 text-white font-bold px-4 py-2.5 rounded-xl hover:bg-white/10 transition text-sm">
+          Download
         </button>
       </div>
 
-      {downloaded && <p className="text-green-400 font-semibold text-sm">✅ Downloaded!</p>}
+      {downloaded && <p className="text-green-400 font-semibold text-sm">Downloaded!</p>}
     </div>
   )
 }
