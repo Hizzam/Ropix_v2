@@ -24,7 +24,7 @@ export default function Pricing() {
 
     setLoading(plan)
     try {
-      const res = await fetch("/api/polar/checkout", {
+      const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan, userEmail }),
@@ -148,7 +148,7 @@ export default function Pricing() {
         </div>
 
         <p className="text-center text-white/20 text-xs mt-8">
-          Secure payments powered by Polar.sh · No credit card stored on our servers
+          Secure payments powered by Stripe · No credit card stored on our servers
         </p>
       </div>
     </div>
