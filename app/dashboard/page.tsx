@@ -28,60 +28,71 @@ export default function Dashboard() {
   const [pageLoading, setPageLoading] = useState(true)
 
   // ✅ FIXED AUTH HANDLING
-  useEffect(() => {
+useEffect(() => {
   let isMounted = true
 
   const fetchData = async (session: any) => {
     if (!isMounted) return
-
     const userId = session.user.id
     const email = session.user.email ?? ""
     setUserEmail(email)
 
-    // Fetch credits
     const { data: profile } = await supabase
       .from("profiles")
       .select("image_credits")
       .eq("id", userId)
       .single()
-
     if (profile) setCredits(profile.image_credits)
 
-    // Fetch history
     const { data: images } = await supabase
       .from("generated_images")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-
     if (images) setHistory(images as GeneratedImage[])
 
-    setPageLoading(false)
+    if (isMounted) setPageLoading(false)
   }
 
-  // 🔥 Listen to auth state changes (THIS FIXES YOUR ISSUE)
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (_event, session) => {
-      if (session) {
-        await fetchData(session)
-      } else {
-        window.location.href = "/login"
-      }
+  // ✅ Safety timeout — if stuck loading for 5 seconds, redirect to login
+  const timeout = setTimeout(() => {
+    if (isMounted) {
+      setPageLoading(false)
+      window.location.href = "/login"
     }
-  )
+  }, 5000)
 
-  // 🔥 Also check existing session immediately
+  // Check session immediately on load
   supabase.auth.getSession().then(({ data: { session } }) => {
     if (session) {
+      clearTimeout(timeout)
       fetchData(session)
     } else {
+      clearTimeout(timeout)
       setPageLoading(false)
       window.location.href = "/login"
     }
   })
 
+  // Also listen for auth state changes
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (_event, session) => {
+      if (session) {
+        clearTimeout(timeout)
+        await fetchData(session)
+      } else {
+        clearTimeout(timeout)
+        if (isMounted) {
+          setPageLoading(false)
+          window.location.href = "/login"
+        }
+      }
+    }
+  )
+
   return () => {
     isMounted = false
+    clearTimeout(timeout)
     subscription.unsubscribe()
   }
 }, [])
