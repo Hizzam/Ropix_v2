@@ -1,6 +1,20 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase"
 import Link from "next/link"
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) setIsLoggedIn(true)
+    }
+    checkSession()
+  }, [])
+
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-white overflow-hidden">
 
@@ -22,12 +36,20 @@ export default function Home() {
           <a href="#faq" className="text-sm text-white/50 hover:text-white transition">FAQ</a>
         </div>
         <div className="flex gap-3">
-          <Link href="/login" className="px-5 py-2 rounded-full border border-white/10 text-sm font-semibold hover:bg-white/5 transition text-white/70">
-            Login
-          </Link>
-          <Link href="/signup" className="px-5 py-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-sm font-black hover:opacity-90 transition shadow-lg shadow-orange-500/20">
-            Get Started Free
-          </Link>
+          {isLoggedIn ? (
+            <Link href="/dashboard" className="px-5 py-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-sm font-black hover:opacity-90 transition shadow-lg shadow-orange-500/20">
+              Go to Dashboard →
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="px-5 py-2 rounded-full border border-white/10 text-sm font-semibold hover:bg-white/5 transition text-white/70">
+                Login
+              </Link>
+              <Link href="/signup" className="px-5 py-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-sm font-black hover:opacity-90 transition shadow-lg shadow-orange-500/20">
+                Get Started Free
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
@@ -48,20 +70,19 @@ export default function Home() {
             Upload your Roblox screenshot, pick a style, and our AI generates a stunning 1920x1080 thumbnail in seconds. Add text, customize, and download.
           </p>
           <div className="flex gap-4 mt-2 flex-wrap justify-center">
-            <Link
-  href="/signup"
-  className="px-8 py-4 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:scale-105 transition-transform shadow-xl shadow-orange-500/25"
->
-  🚀 Start Free Today
-</Link>
-
-<a
-  href="#how-it-works"
-  className="px-8 py-4 rounded-full border border-white/10 font-semibold text-lg hover:bg-white/5 transition text-white/60"
->
-  See How It Works
-</a>
-          </div>
+  <Link
+    href="/signup"
+    className="px-8 py-4 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:scale-105 transition-transform shadow-xl shadow-orange-500/25"
+  >
+    🚀 Start Free Today
+  </Link>
+  <a
+    href="#how-it-works"
+    className="px-8 py-4 rounded-full border border-white/10 font-semibold text-lg hover:bg-white/5 transition text-white/60"
+  >
+    See How It Works
+  </a>
+</div>
           <div className="flex gap-10 mt-10 pt-10 border-t border-white/5 flex-wrap justify-center">
             {[
               { val: "1920x1080", label: "Export Resolution" },
@@ -360,6 +381,9 @@ export default function Home() {
             <a href="#how-it-works" className="hover:text-white/60 transition">How It Works</a>
             <a href="#pricing" className="hover:text-white/60 transition">Pricing</a>
             <a href="#faq" className="hover:text-white/60 transition">FAQ</a>
+            <Link href="/privacy" className="hover:text-white/60 transition">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white/60 transition">Terms of Service</Link>
+            <Link href="/refund" className="hover:text-white/60 transition">Refund Policy</Link>
             <Link href="/login" className="hover:text-white/60 transition">Login</Link>
             <Link href="/signup" className="hover:text-white/60 transition">Sign Up</Link>
           </div>

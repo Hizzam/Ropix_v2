@@ -1,4 +1,4 @@
-"use client"
+"use client"	
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
@@ -25,22 +25,66 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [showCreditPopup, setShowCreditPopup] = useState(false)
+  const [pageLoading, setPageLoading] = useState(true)
 
+  // ✅ FIXED AUTH HANDLING
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      setUserEmail(session.user.email ?? null)
-      const { data: profile } = await supabase
-        .from("profiles").select("image_credits").eq("id", session.user.id).single()
-      if (profile) setCredits(profile.image_credits)
-      const { data: images } = await supabase
-        .from("generated_images").select("*")
-        .eq("user_id", session.user.id).order("created_at", { ascending: false })
-      if (images) setHistory(images as GeneratedImage[])
+  let isMounted = true
+
+  const fetchData = async (session: any) => {
+    if (!isMounted) return
+
+    const userId = session.user.id
+    const email = session.user.email ?? ""
+    setUserEmail(email)
+
+    // Fetch credits
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("image_credits")
+      .eq("id", userId)
+      .single()
+
+    if (profile) setCredits(profile.image_credits)
+
+    // Fetch history
+    const { data: images } = await supabase
+      .from("generated_images")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    if (images) setHistory(images as GeneratedImage[])
+
+    setPageLoading(false)
+  }
+
+  // 🔥 Listen to auth state changes (THIS FIXES YOUR ISSUE)
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (_event, session) => {
+      if (session) {
+        await fetchData(session)
+      } else {
+        window.location.href = "/login"
+      }
     }
-    fetchData()
-  }, [])
+  )
+
+  // 🔥 Also check existing session immediately
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      fetchData(session)
+    } else {
+      setPageLoading(false)
+      window.location.href = "/login"
+    }
+  })
+
+  return () => {
+    isMounted = false
+    subscription.unsubscribe()
+  }
+}, [])
 
   const handleGenerate = async () => {
     if (!uploadedImage) return alert("Upload an image first")
@@ -48,24 +92,47 @@ export default function Dashboard() {
       setShowCreditPopup(true)
       return
     }
+
     setLoading(true)
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return alert("Not logged in")
+
+      if (!session) {
+        window.location.href = "/login"
+        return
+      }
+
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ style: selectedStyle, genre, added_text: addedText }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          style: selectedStyle,
+          genre,
+          added_text: addedText,
+        }),
       })
+
       const data = await res.json()
+
       if (data.image) {
         setCredits(data.credits_remaining)
         setGeneratedImage(data.image)
-        setHistory(prev => [{
-          id: crypto.randomUUID(), image_url: data.image,
-          style: selectedStyle, genre, added_text: addedText,
-          created_at: new Date().toISOString(),
-        }, ...prev])
+
+        setHistory(prev => [
+          {
+            id: crypto.randomUUID(),
+            image_url: data.image,
+            style: selectedStyle,
+            genre,
+            added_text: addedText,
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ])
       } else {
         alert("Generation failed: " + (data.error || "Unknown error"))
       }
@@ -90,6 +157,15 @@ export default function Dashboard() {
     { value: "scifi", label: "🚀 Sci-Fi" },
     { value: "cute", label: "🌸 Cute" },
   ]
+
+  // ✅ Loading screen (prevents flicker/logout bug)
+  if (pageLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#0f0f1a] text-white">
+        <p className="text-lg font-bold">🚀 Loading your dashboard...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-white">
@@ -131,42 +207,70 @@ export default function Dashboard() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5">
             <span className="text-yellow-400 text-sm">⚡</span>
-            <span className="text-sm font-bold">{credits !== null ? `${credits} Credits` : "..."}</span>
+            <span className="text-sm font-bold">
+              {credits !== null ? `${credits} Credits` : "..."}
+            </span>
           </div>
-          {userEmail && <span className="text-white/30 text-sm hidden md:block">{userEmail}</span>}
-          <Link href="/pricing" className="text-sm text-yellow-400 font-semibold hover:text-yellow-300 transition hidden md:block">
+          {userEmail && (
+            <span className="text-white/30 text-sm hidden md:block">
+              {userEmail}
+            </span>
+          )}
+          <Link
+            href="/pricing"
+            className="text-sm text-yellow-400 font-semibold hover:text-yellow-300 transition hidden md:block"
+          >
             Buy Credits
           </Link>
-          <button onClick={handleSignOut} className="text-sm text-white/30 hover:text-white transition">Sign out</button>
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-white/30 hover:text-white transition"
+          >
+            Sign out
+          </button>
         </div>
       </nav>
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 flex flex-col gap-8">
-
         {/* Generator */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
           <h2 className="text-2xl font-black mb-6">
-            🎮 Generate <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Thumbnail</span>
+            🎮 Generate{" "}
+            <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+              Thumbnail
+            </span>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Upload */}
             <div className="flex flex-col gap-3">
-              <label className="text-xs text-white/40 uppercase tracking-widest font-bold">Screenshot</label>
+              <label className="text-xs text-white/40 uppercase tracking-widest font-bold">
+                Screenshot
+              </label>
+
               <label className="flex flex-col items-center justify-center h-52 border-2 border-dashed border-white/10 rounded-xl cursor-pointer hover:border-yellow-400/40 transition bg-white/[0.02]">
                 {uploadedImage ? (
-                  <img src={uploadedImage} alt="preview" className="w-full h-full object-contain rounded-xl" />
+                  <img
+                    src={uploadedImage}
+                    alt="preview"
+                    className="w-full h-full object-contain rounded-xl"
+                  />
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-white/20">
                     <span className="text-4xl">📸</span>
                     <span className="text-xs">Click to upload PNG or JPG</span>
                   </div>
                 )}
-                <input type="file" accept="image/png, image/jpeg" className="hidden"
+
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg"
+                  className="hidden"
                   onChange={(e) => {
                     if (e.target.files?.[0]) {
                       const reader = new FileReader()
-                      reader.onload = (ev) => setUploadedImage(ev.target?.result as string)
+                      reader.onload = (ev) =>
+                        setUploadedImage(ev.target?.result as string)
                       reader.readAsDataURL(e.target.files[0])
                     }
                   }}
@@ -177,15 +281,21 @@ export default function Dashboard() {
             {/* Options */}
             <div className="flex flex-col gap-4">
               <div>
-                <label className="text-xs text-white/40 uppercase tracking-widest font-bold block mb-3">Style</label>
+                <label className="text-xs text-white/40 uppercase tracking-widest font-bold block mb-3">
+                  Style
+                </label>
+
                 <div className="grid grid-cols-3 gap-2">
                   {STYLES.map((s) => (
-                    <button key={s.value} onClick={() => setSelectedStyle(s.value)}
+                    <button
+                      key={s.value}
+                      onClick={() => setSelectedStyle(s.value)}
                       className={`py-2 px-3 rounded-xl text-sm font-semibold border transition ${
                         selectedStyle === s.value
                           ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-transparent shadow-lg shadow-orange-500/20"
                           : "bg-white/5 border-white/10 text-white/60 hover:border-yellow-400/30"
-                      }`}>
+                      }`}
+                    >
                       {s.label}
                     </button>
                   ))}
@@ -193,8 +303,14 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label className="text-xs text-white/40 uppercase tracking-widest font-bold block mb-2">Genre</label>
-                <input type="text" value={genre} onChange={(e) => setGenre(e.target.value)}
+                <label className="text-xs text-white/40 uppercase tracking-widest font-bold block mb-2">
+                  Genre
+                </label>
+
+                <input
+                  type="text"
+                  value={genre}
+                  onChange={(e) => setGenre(e.target.value)}
                   placeholder="e.g. RPG, Obby, Simulator"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/20 focus:outline-none focus:border-yellow-400/50 transition text-sm"
                 />
@@ -202,22 +318,34 @@ export default function Dashboard() {
 
               <div>
                 <label className="text-xs text-white/40 uppercase tracking-widest font-bold block mb-1">
-                  Thumbnail Prompt <span className="text-white/20 normal-case font-normal">(Optional)</span>
+                  Thumbnail Prompt{" "}
+                  <span className="text-white/20 normal-case font-normal">
+                    (Optional)
+                  </span>
                 </label>
-                <p className="text-xs text-white/20 mb-2">Describe the vibe, scene or mood you want</p>
-                <input type="text" value={addedText} onChange={(e) => setAddedText(e.target.value)}
+
+                <p className="text-xs text-white/20 mb-2">
+                  Describe the vibe, scene or mood you want
+                </p>
+
+                <input
+                  type="text"
+                  value={addedText}
+                  onChange={(e) => setAddedText(e.target.value)}
                   placeholder="e.g. Epic battle scene, dramatic lighting"
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/20 focus:outline-none focus:border-yellow-400/50 transition text-sm"
                 />
               </div>
 
-              {/* ✅ Button always active — popup shows when credits = 0 */}
-              <button onClick={handleGenerate} disabled={loading}
+              <button
+                onClick={handleGenerate}
+                disabled={loading}
                 className={`mt-auto w-full py-3.5 rounded-xl font-black text-lg transition ${
                   loading
                     ? "bg-white/5 text-white/20 cursor-not-allowed"
                     : "bg-gradient-to-r from-yellow-400 to-orange-500 text-black hover:opacity-90 shadow-lg shadow-orange-500/20"
-                }`}>
+                }`}
+              >
                 {loading ? "⚙️ Generating..." : "⚡ Generate (1 Credit)"}
               </button>
             </div>
@@ -228,7 +356,10 @@ export default function Dashboard() {
         {generatedImage && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
             <h2 className="text-2xl font-black mb-6">
-              ✏️ Edit <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Thumbnail</span>
+              ✏️ Edit{" "}
+              <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                Thumbnail
+              </span>
             </h2>
             <ThumbnailEditor imageUrl={generatedImage} />
           </div>
@@ -238,23 +369,50 @@ export default function Dashboard() {
         {history.length > 0 && (
           <div>
             <h2 className="text-2xl font-black mb-6">
-              🕹️ <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">History</span>
+              🕹️{" "}
+              <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                History
+              </span>
             </h2>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {history.map((item) => (
-                <div key={item.id} onClick={() => setGeneratedImage(item.image_url)}
-                  className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-yellow-400/30 transition cursor-pointer group">
+                <div
+                  key={item.id}
+                  onClick={() => setGeneratedImage(item.image_url)}
+                  className="bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-yellow-400/30 transition cursor-pointer group"
+                >
                   <div className="relative h-36 overflow-hidden">
-                    <img src={item.image_url} alt="generated" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img
+                      src={item.image_url}
+                      alt="generated"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   </div>
+
                   <div className="p-3 flex flex-col gap-1.5">
                     <div className="flex gap-2 flex-wrap">
-                      <span className="text-xs bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-2 py-0.5 rounded-full font-bold">{item.style}</span>
-                      {item.genre && <span className="text-xs bg-white/5 text-white/40 border border-white/10 px-2 py-0.5 rounded-full">{item.genre}</span>}
+                      <span className="text-xs bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-2 py-0.5 rounded-full font-bold">
+                        {item.style}
+                      </span>
+
+                      {item.genre && (
+                        <span className="text-xs bg-white/5 text-white/40 border border-white/10 px-2 py-0.5 rounded-full">
+                          {item.genre}
+                        </span>
+                      )}
                     </div>
-                    {item.added_text && <p className="text-xs text-white/30 truncate">&quot;{item.added_text}&quot;</p>}
-                    <p className="text-xs text-white/15">Click to edit →</p>
+
+                    {item.added_text && (
+                      <p className="text-xs text-white/30 truncate">
+                        "{item.added_text}"
+                      </p>
+                    )}
+
+                    <p className="text-xs text-white/15">
+                      Click to edit →
+                    </p>
                   </div>
                 </div>
               ))}
@@ -265,3 +423,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
