@@ -31,69 +31,39 @@ export default function Dashboard() {
 useEffect(() => {
   let isMounted = true
 
-  const fetchData = async (session: any) => {
-    if (!isMounted) return
-    const userId = session.user.id
-    const email = session.user.email ?? ""
-    setUserEmail(email)
+  const loadDashboard = async () => {
+    // First try getSession
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (session && isMounted) {
+      setUserEmail(session.user.email ?? "")
+      setPageLoading(false)
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("image_credits")
-      .eq("id", userId)
-      .single()
-    if (profile) setCredits(profile.image_credits)
+      // Load data in background
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("image_credits")
+        .eq("id", session.user.id)
+        .single()
+      if (profile && isMounted) setCredits(profile.image_credits)
 
-    const { data: images } = await supabase
-      .from("generated_images")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-    if (images) setHistory(images as GeneratedImage[])
+      const { data: images } = await supabase
+        .from("generated_images")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false })
+      if (images && isMounted) setHistory(images as GeneratedImage[])
 
-    if (isMounted) setPageLoading(false)
+    } else if (isMounted) {
+      // No session found — redirect to login
+      window.location.href = "/login"
+    }
   }
 
-  // ✅ Safety timeout — if stuck loading for 5 seconds, redirect to login
-  const timeout = setTimeout(() => {
-    if (isMounted) {
-      setPageLoading(false)
-      window.location.href = "/login"
-    }
-  }, 5000)
-
-  // Check session immediately on load
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) {
-      clearTimeout(timeout)
-      fetchData(session)
-    } else {
-      clearTimeout(timeout)
-      setPageLoading(false)
-      window.location.href = "/login"
-    }
-  })
-
-  // Also listen for auth state changes
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (_event, session) => {
-      if (session) {
-        clearTimeout(timeout)
-        await fetchData(session)
-      } else {
-        clearTimeout(timeout)
-        if (isMounted) {
-          setPageLoading(false)
-          window.location.href = "/login"
-        }
-      }
-    }
-  )
+  loadDashboard()
 
   return () => {
     isMounted = false
-    clearTimeout(timeout)
-    subscription.unsubscribe()
   }
 }, [])
 
@@ -171,12 +141,15 @@ useEffect(() => {
 
   // ✅ Loading screen (prevents flicker/logout bug)
   if (pageLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-[#0f0f1a] text-white">
-        <p className="text-lg font-bold">🚀 Loading your dashboard...</p>
+  return (
+    <div className="min-h-screen bg-[#0f0f1a] text-white flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+        <p className="text-white/40 text-sm">Loading...</p>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-white">
