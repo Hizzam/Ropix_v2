@@ -377,16 +377,11 @@ export default function Home() {
             </span>
             <span className="text-white/20 text-sm">AI Thumbnail Generator for Roblox</span>
           </div>
-          <div className="flex gap-6 text-sm text-white/30 flex-wrap justify-center">
-            <a href="#how-it-works" className="hover:text-white/60 transition">How It Works</a>
-            <a href="#pricing" className="hover:text-white/60 transition">Pricing</a>
-            <a href="#faq" className="hover:text-white/60 transition">FAQ</a>
-            <Link href="/privacy" className="hover:text-white/60 transition">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-white/60 transition">Terms of Service</Link>
-            <Link href="/refund" className="hover:text-white/60 transition">Refund Policy</Link>
-            <Link href="/login" className="hover:text-white/60 transition">Login</Link>
-            <Link href="/signup" className="hover:text-white/60 transition">Sign Up</Link>
-          </div>
+<div className="flex gap-6 text-sm text-white/30 flex-wrap justify-center">
+  <Link href="/privacy" className="hover:text-white/60 transition">Privacy Policy</Link>
+  <Link href="/terms" className="hover:text-white/60 transition">Terms of Service</Link>
+  <Link href="/refund" className="hover:text-white/60 transition">Refund Policy</Link>
+</div>
           <p className="text-white/20 text-xs">© 2025 Ropix · All rights reserved</p>
         </div>
       </footer>
