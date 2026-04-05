@@ -1,4 +1,4 @@
-"use client"	
+"use client"
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
@@ -27,45 +27,41 @@ export default function Dashboard() {
   const [showCreditPopup, setShowCreditPopup] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
 
-  // ✅ FIXED AUTH HANDLING
-useEffect(() => {
-  let isMounted = true
+  useEffect(() => {
+    let isMounted = true
 
-  const loadDashboard = async () => {
-    // First try getSession
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (session && isMounted) {
-      setUserEmail(session.user.email ?? "")
-      setPageLoading(false)
+    const loadDashboard = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
 
-      // Load data in background
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("image_credits")
-        .eq("id", session.user.id)
-        .single()
-      if (profile && isMounted) setCredits(profile.image_credits)
+      if (session && isMounted) {
+        setUserEmail(session.user.email ?? "")
+        setPageLoading(false)
 
-      const { data: images } = await supabase
-        .from("generated_images")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-      if (images && isMounted) setHistory(images as GeneratedImage[])
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("image_credits")
+          .eq("id", session.user.id)
+          .single()
+        if (profile && isMounted) setCredits(profile.image_credits)
 
-    } else if (isMounted) {
-      // No session found — redirect to login
-      window.location.href = "/login"
+        const { data: images } = await supabase
+          .from("generated_images")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+        if (images && isMounted) setHistory(images as GeneratedImage[])
+
+      } else if (isMounted) {
+        window.location.href = "/login"
+      }
     }
-  }
 
-  loadDashboard()
+    loadDashboard()
 
-  return () => {
-    isMounted = false
-  }
-}, [])
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleGenerate = async () => {
     if (!uploadedImage) return alert("Upload an image first")
@@ -130,6 +126,26 @@ useEffect(() => {
     window.location.href = "/"
   }
 
+  const handleManageSubscription = async () => {
+    if (!userEmail) return
+    try {
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerEmail: userEmail }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert("No active subscription found. Please purchase a plan first.")
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Something went wrong. Please try again.")
+    }
+  }
+
   const STYLES = [
     { value: "cartoon", label: "🎨 Cartoon" },
     { value: "anime", label: "⛩️ Anime" },
@@ -139,17 +155,16 @@ useEffect(() => {
     { value: "cute", label: "🌸 Cute" },
   ]
 
-  // ✅ Loading screen (prevents flicker/logout bug)
   if (pageLoading) {
-  return (
-    <div className="min-h-screen bg-[#0f0f1a] text-white flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-        <p className="text-white/40 text-sm">Loading...</p>
+    return (
+      <div className="min-h-screen bg-[#0f0f1a] text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/40 text-sm">Loading...</p>
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#0f0f1a] text-white">
@@ -169,7 +184,7 @@ useEffect(() => {
               href="/pricing"
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:opacity-90 transition shadow-lg shadow-orange-500/20"
             >
-              🚀 Purchase Credits
+              Purchase Credits
             </Link>
             <button
               onClick={() => setShowCreditPopup(false)}
@@ -206,6 +221,12 @@ useEffect(() => {
           >
             Buy Credits
           </Link>
+          <button
+            onClick={handleManageSubscription}
+            className="text-sm text-white/30 hover:text-white transition hidden md:block"
+          >
+            Manage Subscription
+          </button>
           <button
             onClick={handleSignOut}
             className="text-sm text-white/30 hover:text-white transition"
@@ -395,7 +416,7 @@ useEffect(() => {
                     )}
 
                     <p className="text-xs text-white/15">
-                      Click to edit →
+                      Click to edit
                     </p>
                   </div>
                 </div>
@@ -407,4 +428,3 @@ useEffect(() => {
     </div>
   )
 }
-
