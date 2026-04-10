@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import Link from "next/link"
 
+const DISCORD_LINK = "https://discord.gg/CP4AqfHA"
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
@@ -34,11 +36,17 @@ export default function Home() {
           <a href="#gallery" className="text-sm text-white/50 hover:text-white transition">Gallery</a>
           <a href="#pricing" className="text-sm text-white/50 hover:text-white transition">Pricing</a>
           <a href="#faq" className="text-sm text-white/50 hover:text-white transition">FAQ</a>
+          <a href={DISCORD_LINK} target="_blank" rel="noopener noreferrer" className="text-sm text-white/50 hover:text-white transition flex items-center gap-1.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+            </svg>
+            Discord
+          </a>
         </div>
         <div className="flex gap-3">
           {isLoggedIn ? (
             <Link href="/dashboard" className="px-5 py-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-sm font-black hover:opacity-90 transition shadow-lg shadow-orange-500/20">
-              Go to Dashboard →
+              Go to Dashboard
             </Link>
           ) : (
             <>
@@ -70,19 +78,19 @@ export default function Home() {
             Upload your Roblox screenshot, pick a style, and our AI generates a stunning 1920x1080 thumbnail in seconds. Add text, customize, and download.
           </p>
           <div className="flex gap-4 mt-2 flex-wrap justify-center">
-  <Link
-    href="/signup"
-    className="px-8 py-4 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:scale-105 transition-transform shadow-xl shadow-orange-500/25"
-  >
-    🚀 Start Free Today
-  </Link>
-  <a
-    href="#how-it-works"
-    className="px-8 py-4 rounded-full border border-white/10 font-semibold text-lg hover:bg-white/5 transition text-white/60"
-  >
-    See How It Works
-  </a>
-</div>
+            <Link
+              href="/signup"
+              className="px-8 py-4 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-lg hover:scale-105 transition-transform shadow-xl shadow-orange-500/25"
+            >
+              Start Free Today
+            </Link>
+            <a
+              href="#how-it-works"
+              className="px-8 py-4 rounded-full border border-white/10 font-semibold text-lg hover:bg-white/5 transition text-white/60"
+            >
+              See How It Works
+            </a>
+          </div>
           <div className="flex gap-10 mt-10 pt-10 border-t border-white/5 flex-wrap justify-center">
             {[
               { val: "1920x1080", label: "Export Resolution" },
@@ -232,7 +240,7 @@ export default function Home() {
             <div key={plan.name} className={`relative bg-white/5 border ${plan.border} rounded-2xl p-7 flex flex-col gap-5 ${plan.scale}`}>
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-xs font-black px-5 py-1.5 rounded-full shadow-lg shadow-orange-500/30 whitespace-nowrap">
-                  ⭐ MOST POPULAR
+                  MOST POPULAR
                 </div>
               )}
               <div>
@@ -251,7 +259,7 @@ export default function Home() {
                 ))}
               </ul>
               <Link href="/signup" className={`w-full text-center py-3.5 rounded-xl font-bold text-sm transition ${plan.btn}`}>
-                Get Started →
+                Get Started
               </Link>
             </div>
           ))}
@@ -259,6 +267,51 @@ export default function Home() {
         <p className="text-center text-white/20 text-xs mt-8">
           All plans include a free trial credit · No credit card required to sign up
         </p>
+      </section>
+
+      {/* DISCORD COMMUNITY */}
+      <section className="px-6 py-24 bg-white/[0.02] border-y border-white/5">
+        <div className="max-w-4xl mx-auto text-center flex flex-col items-center gap-6">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" className="text-indigo-400">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+            </svg>
+          </div>
+          <p className="text-xs text-yellow-400 font-black tracking-widest uppercase">Community</p>
+          <h2 className="text-4xl md:text-5xl font-black">
+            Join the{" "}
+            <span className="bg-gradient-to-r from-yellow-400 to-pink-500 bg-clip-text text-transparent">
+              Ropix Community
+            </span>
+          </h2>
+          <p className="text-white/50 max-w-lg leading-relaxed">
+            Connect with other Roblox developers, share your thumbnails, get feedback, and stay updated on new features. The founder is active daily.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mt-2">
+            {[
+              { emoji: "🎨", title: "Share Thumbnails", desc: "Show off your AI generated thumbnails and get feedback" },
+              { emoji: "💡", title: "Shape the Product", desc: "Your feedback directly influences what gets built next" },
+              { emoji: "🚀", title: "Early Access", desc: "Be first to know about new features and tools" },
+            ].map((item) => (
+              <div key={item.title} className="bg-white/5 border border-white/10 rounded-xl p-4 text-left">
+                <div className="text-2xl mb-2">{item.emoji}</div>
+                <div className="font-bold text-sm text-white mb-1">{item.title}</div>
+                <div className="text-xs text-white/40 leading-relaxed">{item.desc}</div>
+              </div>
+            ))}
+          </div>
+          <a
+            href={DISCORD_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-8 py-4 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg transition shadow-xl shadow-indigo-500/25"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+            </svg>
+            Join Discord Community
+          </a>
+        </div>
       </section>
 
       {/* TESTIMONIALS */}
@@ -363,7 +416,7 @@ export default function Home() {
             href="/signup"
             className="px-10 py-4 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-xl hover:scale-105 transition-transform shadow-xl shadow-orange-500/25"
           >
-            🚀 Get Started Free
+            Get Started Free
           </Link>
         </div>
       </section>
@@ -377,11 +430,17 @@ export default function Home() {
             </span>
             <span className="text-white/20 text-sm">AI Thumbnail Generator for Roblox</span>
           </div>
-<div className="flex gap-6 text-sm text-white/30 flex-wrap justify-center">
-  <Link href="/privacy" className="hover:text-white/60 transition">Privacy Policy</Link>
-  <Link href="/terms" className="hover:text-white/60 transition">Terms of Service</Link>
-  <Link href="/refund" className="hover:text-white/60 transition">Refund Policy</Link>
-</div>
+          <div className="flex gap-6 text-sm text-white/30 flex-wrap justify-center items-center">
+            <a href={DISCORD_LINK} target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+              </svg>
+              Discord
+            </a>
+            <Link href="/privacy" className="hover:text-white/60 transition">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white/60 transition">Terms of Service</Link>
+            <Link href="/refund" className="hover:text-white/60 transition">Refund Policy</Link>
+          </div>
           <p className="text-white/20 text-xs">© 2025 Ropix · All rights reserved</p>
         </div>
       </footer>
